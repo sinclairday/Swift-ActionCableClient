@@ -81,12 +81,15 @@ open class Channel: Hashable, Equatable {
     /// by the server.
     open var onRejected: (() -> Void)?
 
-    internal init(name: String, identifier: ChannelIdentifier?, client: ActionCableClient, autoSubscribe: Bool=true, shouldBufferActions: Bool=true) {
+    internal let queue: DispatchQueue
+    
+    internal init(name: String, identifier: ChannelIdentifier?, client: ActionCableClient, autoSubscribe: Bool=true, shouldBufferActions: Bool=true, queue: DispatchQueue) {
         self.name = name
         self.client = client
         self.autoSubscribe = autoSubscribe
         self.shouldBufferActions = shouldBufferActions
         self.identifier = identifier
+        self.queue = queue
     }
     
     open func onReceive(_ action:String, handler: @escaping (OnReceiveClosure)) -> Void {
@@ -190,27 +193,27 @@ extension Channel {
         switch message.messageType {
             case .message:
                 if let callback = self.onReceive {
-                    DispatchQueue.main.async(execute: { callback(message.data, message.error) })
+                    queue.async(execute: { callback(message.data, message.error) })
                 }
                 
                 if let actionName = message.actionName, let callback = self.onReceiveActionHooks[actionName] {
-                    DispatchQueue.main.async(execute: { callback(message.data, message.error) })
+                    queue.async(execute: { callback(message.data, message.error) })
                 }
             case .confirmSubscription:
                 if let callback = self.onSubscribed {
-                    DispatchQueue.main.async(execute: callback)
+                    queue.async(execute: callback)
                 }
                 
                 self.flushBuffer()
             case .rejectSubscription:
                 if let callback = self.onRejected {
-                    DispatchQueue.main.async(execute: callback)
+                    queue.async(execute: callback)
                 }
             case .hibernateSubscription:
               fallthrough
             case .cancelSubscription:
                 if let callback = self.onUnsubscribed {
-                    DispatchQueue.main.async(execute: callback)
+                    queue.async(execute: callback)
                 }
             default: break
         }

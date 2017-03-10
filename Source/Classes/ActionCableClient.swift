@@ -29,7 +29,7 @@ open class ActionCableClient {
   
     //MARK: Socket
     fileprivate(set) var socket : WebSocket
-    
+
     /// Reconnection Strategy
     ///
     /// If a disconnection occurs, reconnnectionStrategy determines and calculates
@@ -81,7 +81,10 @@ open class ActionCableClient {
         get { return socket.origin }
         set { socket.origin = newValue }
     }
-  
+
+    /// Callback queue
+    internal let queue: DispatchQueue
+    
     /// Initialize an ActionCableClient.
     ///
     /// Each client represents one connection to the server.
@@ -91,16 +94,24 @@ open class ActionCableClient {
     ///  ```swift
     ///  let client = ActionCableClient(URL: NSURL(string: "ws://localhost:3000/cable")!)
     ///  ```
-    public required init(url: URL) {
+    public required init(url: URL, queue q: DispatchQueue? = nil) {
         /// Setup Initialize Socket
+        if let q = q {
+            queue = q
+        }
+        else {
+            queue = DispatchQueue.main
+        }
+        
         socket = WebSocket(url: url)
+        socket.callbackQueue = queue
         setupWebSocket()
     }
     
     /// Connect with the server
     @discardableResult
     open func connect() -> ActionCableClient {
-        DispatchQueue.main.async {
+        queue.async {
           if let callback = self.willConnect {
             callback()
           }
@@ -121,7 +132,7 @@ open class ActionCableClient {
     }
     
     internal func reconnect() {
-        DispatchQueue.main.async {
+        queue.async {
             var shouldReconnect = true
             if let callback = self.willReconnect {
                 shouldReconnect = callback()
@@ -220,7 +231,8 @@ extension ActionCableClient {
             identifier: identifier,
             client: self,
             autoSubscribe: autoSubscribe,
-            shouldBufferActions: bufferActions)
+            shouldBufferActions: bufferActions,
+            queue: self.queue)
       
         self.unconfirmedChannels[name] = channel
       
@@ -311,7 +323,7 @@ extension ActionCableClient {
         reconnectionState = nil
         
         if let callback = onConnected {
-            DispatchQueue.main.async(execute: callback)
+            queue.async(execute: callback)
         }
         
         for (_, channel) in self.unconfirmedChannels {
@@ -371,7 +383,7 @@ extension ActionCableClient {
             // as it will not seem accurate
             if manualDisconnectFlag { connectionError = nil }
             
-            DispatchQueue.main.async(execute: { callback(connectionError) })
+            queue.async(execute: { callback(connectionError) })
         }
         
         // Reset Manual Disconnect Flag
@@ -401,7 +413,7 @@ extension ActionCableClient {
                 break
             case .ping:
                 if let callback = onPing {
-                    DispatchQueue.main.async(execute: callback)
+                    queue.async(execute: callback)
                 }
             case .message:
                 if let channel = channels[message.channelName!] {
@@ -409,7 +421,7 @@ extension ActionCableClient {
                     channel.onMessage(message)
                     
                     if let callback = onChannelReceive {
-                        DispatchQueue.main.async(execute: { callback(channel, message.data, message.error) } )
+                        queue.async(execute: { callback(channel, message.data, message.error) } )
                     }
                 }
             case .confirmSubscription:
@@ -420,7 +432,7 @@ extension ActionCableClient {
                     channel.onMessage(message)
                     
                     if let callback = onChannelSubscribed {
-                        DispatchQueue.main.async(execute: { callback(channel) })
+                        queue.async(execute: { callback(channel) })
                     }
                 }
             case .rejectSubscription:
@@ -431,7 +443,7 @@ extension ActionCableClient {
                     channel.onMessage(message)
                     
                     if let callback = onChannelRejected {
-                        DispatchQueue.main.async(execute: { callback(channel) })
+                        queue.async(execute: { callback(channel) })
                     }
                 }
             case .hibernateSubscription:
@@ -449,7 +461,7 @@ extension ActionCableClient {
                     channel.onMessage(message)
                     
                     if let callback = onChannelUnsubscribed {
-                        DispatchQueue.main.async(execute: { callback(channel) })
+                        queue.async(execute: { callback(channel) })
                     }
                 }
             }
