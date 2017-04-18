@@ -310,11 +310,11 @@ extension ActionCableClient {
 extension ActionCableClient {
     
     fileprivate func setupWebSocket() {
-        self.socket.onConnect    = { [weak self] in self!.didConnect() }
-        self.socket.onDisconnect = { [weak self] (error: Swift.Error?) in self!.didDisconnect(error) }
-        self.socket.onText       = { [weak self] (text: String) in self!.onText(text) }
-        self.socket.onData       = { [weak self] (data: Data) in self!.onData(data) }
-        self.socket.onPong       = { [weak self] (data: Data?) in self!.didPong() }
+        self.socket.onConnect    = { [weak self] in self?.didConnect() }
+        self.socket.onDisconnect = { [weak self] (error: Swift.Error?) in self?.didDisconnect(error) }
+        self.socket.onText       = { [weak self] (text: String) in self?.onText(text) }
+        self.socket.onData       = { [weak self] (data: Data) in self?.onData(data) }
+        self.socket.onPong       = { [weak self] (data: Data?) in self?.didPong() }
     }
     
     fileprivate func didConnect() {
